@@ -8,7 +8,7 @@ use crate::ImageDisplay;
 #[component]
 pub fn Home(cx: Scope, 
   image_list: Signal<Option<Vec<Contents>>>,
-  app_state: RwSignal<Option<AppState>>,
+  app_state_signal: RwSignal<Option<AppState>>,
   ) 
   -> impl IntoView {
     let (_current_image_key, _set_current_image_key) = create_signal(cx, "");
@@ -28,17 +28,15 @@ pub fn Home(cx: Scope,
                   view! {
                     cx,
                     <ImageLink 
-                      key={contents.key} 
-                      _id={contents.e_tag}
-                      last_modified={contents.last_modified}
-                      app_state={app_state.into()}
+                      contents={contents}
+                      app_state_signal={app_state_signal.into()}
                     />
                   }
                 }
               />
             </div>
             <div>
-              <ImageDisplay app_state={app_state} image_list={image_list} />
+              <ImageDisplay app_state_signal={app_state_signal} image_list={image_list} />
             </div>
           </div>
         }.into_view(cx),

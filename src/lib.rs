@@ -1,15 +1,12 @@
 use leptos::*;
 use leptos_router::*;
 use serde::{Deserialize, Serialize};
-use base64::*;
-use base64::alphabet::Alphabet;
-use base64::alphabet::ParseAlphabetError;
+use crate::api::S3Api;
 
-const CUSTOM_ALPHABET: Result<Alphabet, ParseAlphabetError> = 
-    base64::alphabet::Alphabet::new("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
-
+use crate::hash_route::*;
 
 mod api;
+mod hash_route;
 mod components;
 mod pages;
 
@@ -23,13 +20,20 @@ pub struct Error {
 #[derive(Clone, Deserialize)]
 pub struct AppState {
     current_image: String,
+    e_tag: String,
+    current_caption: Option<String>,
 }
 
 impl AppState {
-    pub fn new(ci: String) -> Self {
+    pub fn new(contents: Contents) -> Self {
         Self {
-            current_image: ci,
+            current_image: contents.key,
+            e_tag: contents.e_tag,
+            current_caption: None,  
         }
+    }
+    pub fn set_caption(&mut self, new_caption: String) {
+        self.current_caption = Some(new_caption);
     }
 }
 
@@ -67,60 +71,30 @@ pub struct Contents {
     _storage_class: String,
 }
 
-struct HashState {
-    current_image: Option<String>,
+fn get_update_caption_action(cx: Scope, app_state: RwSignal<Option<AppState>>) -> Action<(), ()> {
+    create_action(cx, move |_| async move {
+        let s3_api = S3Api::new();
+        let ut = app_state.get_untracked().expect("app state expected");
+        match s3_api.get_comment(ut.e_tag).await {
+            Some(contents) => {
+                let mut current_state= app_state.get_untracked().expect("app state expected");
+                current_state.set_caption(contents);
+                app_state.set(Some(current_state));
+            },
+            _ => log::info!("No contents returned"),
+        }
+    })
 }
 
-impl HashState {
-        pub fn new(current_image: Option<String>) -> Self {
-            Self { 
-                current_image: current_image,
-            }
-        }
-
-        pub fn empty() -> Self {
-            Self {
-                current_image: None
-            }
-        }
-}
-
-
-fn decode_hash_route_from_url(url: String) -> HashState {
-    let mut url = String::from(&url);
-    let mut hash_state = HashState::empty();
-    let hash_index = url.find("#");
-    if hash_index.is_some() {
-        let mut hash = url.split_off(hash_index.unwrap());
-        hash.remove(0);
-        hash_state = decode_hash_route(hash);
-    }
-    hash_state
-
-}
-
-fn decode_hash_route(hash: String) -> HashState {
-    let engine = base64::engine::GeneralPurpose::new(
-        &CUSTOM_ALPHABET.unwrap(),
-        base64::engine::general_purpose::PAD);
-    let decoded = engine.decode(&String::from(&hash));
-    let mut image_key: Option<String> = None;
-    if decoded.is_ok() {
-        let ds =  String::from_utf8(decoded.unwrap());
-        if ds.is_ok() {
-            let s = String::from_utf8(ds.unwrap().into());
-            if s.is_ok() {
-                image_key = Some(s.clone().unwrap());
-            }
-        }
-    }
-    HashState::new(image_key)
+pub fn update_app_state(cx: Scope, app_state_signal: RwSignal<Option<AppState>>, new_app_state: AppState) {
+    app_state_signal.set(Some(new_app_state));
+    get_update_caption_action(cx, app_state_signal).dispatch(());
 }
 
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
     let image_list = create_rw_signal(cx, None::<Vec<Contents>>);
-    let app_state = create_rw_signal(cx, None::<AppState>);
+    let app_state_signal = create_rw_signal(cx, None::<AppState>);
 
     window_event_listener(ev::hashchange, move |ev| {
         let hash_state = decode_hash_route_from_url(ev.new_url());
@@ -130,26 +104,15 @@ pub fn App(cx: Scope) -> impl IntoView {
             let working_list = image_list.get_untracked().expect("image list empty");
             let mut index = 0;
             loop {
-                let item = &working_list[index];
+                let item = working_list[index].clone();
                 if item.key == image_key {
                     log::info!("setting key from hash");
-                    app_state.set(Some(AppState::new(String::from(&item.key))));
+                    update_app_state(cx, app_state_signal, AppState::new(item));       
                     break;
                 }
                 index = index + 1;
                 if index > (working_list.len() -1) {break};
             }
-        }
-    });
-
-    create_effect(cx, move |_| {
-        let engine = base64::engine::GeneralPurpose::new(
-            &CUSTOM_ALPHABET.unwrap(),
-            base64::engine::general_purpose::PAD);
-        let ci = app_state.get();
-        if ci.is_some() {
-            leptos::window().location().set_hash(&engine.encode(ci.expect("")
-                .current_image.as_bytes())).expect("unable to set hash");
         }
     });
 
@@ -168,10 +131,11 @@ pub fn App(cx: Scope) -> impl IntoView {
                             let image_key = current_hash_state.current_image.expect("no image found");
                             let mut index = 0;
                             loop {
-                                let item = &contents[index];
+                                let item = contents[index].clone();
                                 if item.key == image_key {
                                     log::info!("setting key from hash");
-                                    app_state.set(Some(AppState::new(String::from(&item.key))));
+                                    let new_state = AppState::new(item);
+                                    update_app_state(cx, app_state_signal, new_state);
                                     found_current_in_hash_route = true;
                                     break;
                                 }
@@ -182,9 +146,8 @@ pub fn App(cx: Scope) -> impl IntoView {
                     }
                 }
                 if !found_current_in_hash_route {
-                    let ci = &contents.first().expect("image list empty").key;
-                    let new_app_state = AppState::new(ci.to_string());
-                    app_state.set(Some(new_app_state));
+                    let ci = contents.first().expect("image list empty");
+                    update_app_state(cx, app_state_signal, AppState::new(ci.clone()).clone());  
                 }
                 image_list.set(Some(contents)); 
             }
@@ -196,10 +159,17 @@ pub fn App(cx: Scope) -> impl IntoView {
         }
     });
 
+    create_effect(cx, move |_| {
+        match  app_state_signal.get() {
+            Some(a) => update_hash_route(Some(a)),
+            _ => log::info!("No state to update")
+        }
+    });
+        
+
     // -- initial image fetch //
     log::info!("initializing");
     fetch_images.dispatch(());
-
 
     view! { cx,
       <Router>
@@ -208,7 +178,7 @@ pub fn App(cx: Scope) -> impl IntoView {
             <Route
               path=Page::Home.path()
               view=move |cx| view! { cx,
-                <Home image_list = image_list.into() app_state = app_state.into() />
+                <Home image_list = image_list.into() app_state_signal = app_state_signal.into() />
               }
             />
           </Routes>

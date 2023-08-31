@@ -23,6 +23,21 @@ impl S3Api {
         LocalStorage::get(BUCKET_NAME.to_string()).expect("bucket name not found in local config")
     }
 
+    pub async fn get_comment(&self, id: String) -> Option<String> {
+        let url = format!("http://{}.s3.amazonaws.com/comments/{}", self.bucket_name(), id);
+        let request = Request::get(&url).headers(self.get_headers());
+        let response = request.send().await.unwrap();
+        if response.ok() {
+        let text_result = response.text().await;
+            match text_result {
+                Ok(s) => Some(s),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    } 
+
     fn get_headers(&self) -> Headers {
         let headers = Headers::new();
         headers.append("X-Amz-Content-Sha256", "UNSIGNED-PAYLOAD");
@@ -80,7 +95,7 @@ impl From<crate::Error> for Error {
 mod tests {
     #[test]
     fn s3_api_test() {
-        let s3_api = S3Api::new();
+        //let s3_api = S3Api::new();
         let result = 2 + 2;
         assert_eq!(result, 4);
     }

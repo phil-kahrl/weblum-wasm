@@ -1,35 +1,34 @@
 use leptos::*;
 use crate::AppState;
+use crate::Contents;
+use crate::update_app_state;
 
 #[component]
 pub fn ImageLink(
     cx: Scope,
-    key: String,
-    _id: String,
-    last_modified: String,
-    app_state: RwSignal<Option<AppState>>,
+    contents: Contents,
+    app_state_signal: RwSignal<Option<AppState>>,
 ) -> impl IntoView
 {
-    let click_arg = String::from(&key);
-    let mut mut_key_to = String::from(&key);
+    let mut mut_key_to = String::from(&contents.key);
     let name_only = mut_key_to.split_off(7);
-    let mut date_display = String::from(&last_modified);
+    let mut date_display = String::from(&contents.last_modified);
     date_display.truncate(10);
     let class_name = "link";
-    let comparison_key = String::from(&key);
+    let comparison_key = String::from(&contents.key);
 
     view! { cx,
         <div 
             class={class_name}
-            id={format!("{}", String::from(&key))}
+            id={format!("{}", String::from(&contents.key))}
                 on:click={move |_evt| {
-                        app_state.set(Some(AppState::new(format!("{}", String::from(&click_arg)))));
+                        update_app_state(cx, app_state_signal, AppState::new(contents.clone()));
                     }
                 }
             >
-                <div class={ 
-                    move || 
-                        if app_state.get().unwrap_or(AppState::new("none".to_string())).current_image == comparison_key 
+                <div class={
+                    move ||
+                        if app_state_signal.get().expect("app state should exist").current_image == comparison_key 
                         {"link selected"}
                             else 
                         {"link"}
