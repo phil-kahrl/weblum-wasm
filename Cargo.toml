@@ -1,0 +1,34 @@
+[package]
+name = "weblumclient"
+version = "0.0.1"
+edition = "2021"
+publish = false
+
+[dependencies]
+
+
+leptos = "0.4.10"
+leptos_router = { version = "0.4.10", features = ["csr"] }
+base64 = "0.21.3"
+log = "0.4"
+console_error_panic_hook = "0.1"
+console_log = "0.2"
+gloo-net = "0.2.6"
+gloo-storage = "0.2.2"
+serde = "1.0"
+thiserror = "1.0"
+js-sys = "0.3.64"
+url = "1.6.0"
+
+[dependencies.web-sys]
+version = "0.3.64"
+features = ['EventTarget', 'MouseEvent', 'Node', 'UiEvent', 'Event', 'File', 'HtmlInputElement', 'Element', 'FileList']
+
+[dependencies.wasm-bindgen]
+version = "0.2.87"
+
+[dependencies.quick-xml]
+version = "0.27.1"
+features = [
+  'serialize',
+]
