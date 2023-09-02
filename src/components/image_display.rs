@@ -18,6 +18,7 @@ pub fn ImageDisplay(
                     <div class="imageButtonsContainer">
                         <div 
                             class="link"
+                            style="font-size: 2em; line-height: 3em;"
                             on:click={move |_evt| {
                                 let mut index = 0;
                                 let working_list = image_list.get_untracked().expect("image list empty");
@@ -37,6 +38,7 @@ pub fn ImageDisplay(
                         <h3>{format!("{}", s.current_image.replace("images/", ""))}</h3>
                         <div 
                             class="link"
+                            style="font-size: 2em; line-height: 3em;"
                             on:click={move |_evt| {
                                 let mut index = 0;
                                 let working_list = image_list.get_untracked().expect("image list empty");
@@ -57,7 +59,8 @@ pub fn ImageDisplay(
                     <img
                         src={format!("http://{}.s3.amazonaws.com/{}", S3Api::new().bucket_name(), s.current_image)}
                     />
-                    <a class="link" target={"_blank"} href={format!("http://{}.s3.amazonaws.com/{}", S3Api::new().bucket_name(), s.current_image)}>
+                    <a class="link"
+                        target={"_blank"} href={format!("http://{}.s3.amazonaws.com/{}", S3Api::new().bucket_name(), s.current_image)}>
                         {"Download Image"}
                     </a>
                     <div>{s.current_caption}</div>

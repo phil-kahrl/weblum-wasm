@@ -1,11 +1,10 @@
 use gloo_net::http::{Request, Headers};
-use gloo_storage::{LocalStorage, Storage};
 use thiserror::Error;
 use url::form_urlencoded::byte_serialize;
+use crate::Config;
 use crate::ListBucketResult;
 use crate::Contents;
 
-const BUCKET_NAME: &str = "BUCKET_NAME";
 const USER_AGENT: &str = "wasm-fetch";
 
 #[derive(Clone, Copy)]
@@ -20,11 +19,12 @@ impl S3Api {
     }
 
     pub fn bucket_name(&self) -> String {
-        LocalStorage::get(BUCKET_NAME.to_string()).expect("bucket name not found in local config")
+        let config = Config::new();
+        config.s3_bucket_name.expect("no bucket configured.")
     }
 
     pub async fn get_comment(&self, id: String) -> Option<String> {
-        let url = format!("http://{}.s3.amazonaws.com/comments/{}", self.bucket_name(), id);
+        let url = format!("https://{}.s3.amazonaws.com/comments/{}", self.bucket_name(), id);
         let request = Request::get(&url).headers(self.get_headers());
         let response = request.send().await.unwrap();
         if response.ok() {
@@ -55,14 +55,14 @@ impl S3Api {
 
     pub async fn list_images(&self) -> Result<Vec<Contents>> {
         let mut contents: Vec<Contents> = vec![];
-        let url = {format!("http://{}.s3.amazonaws.com/?list-type=2&prefix=images%2F&start-after=images%2F", 
+        let url = {format!("https://{}.s3.amazonaws.com/?list-type=2&prefix=images%2F&start-after=images%2F", 
             self.bucket_name())};
         let mut r = self.send_list_request(url).await;
         contents.append(&mut r.contents);
         while r.is_truncated {
             if r.next_continuation_token.is_some() {
                 let continuation_token = String::from(r.next_continuation_token.clone().unwrap());
-                let url = format!("http://{}.s3.amazonaws.com/?list-type=2&continuation-token={}&prefix=images%2F&start-after=images%2F",
+                let url = format!("https://{}.s3.amazonaws.com/?list-type=2&continuation-token={}&prefix=images%2F&start-after=images%2F",
                 self.bucket_name(), byte_serialize(continuation_token.as_bytes()).collect::<String>());
                 r = self.send_list_request(url).await;
                 contents.append(&mut r.contents);

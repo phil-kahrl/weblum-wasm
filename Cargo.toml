@@ -22,7 +22,7 @@ url = "1.6.0"
 
 [dependencies.web-sys]
 version = "0.3.64"
-features = ['EventTarget', 'MouseEvent', 'Node', 'UiEvent', 'Event', 'File', 'HtmlInputElement', 'Element', 'FileList']
+features = ['EventTarget', 'MouseEvent', 'Node', 'UiEvent', 'Event', 'File', 'HtmlInputElement', 'Element', 'FileList', 'Navigator', 'HtmlSelectElement', 'HtmlElement']
 
 [dependencies.wasm-bindgen]
 version = "0.2.87"

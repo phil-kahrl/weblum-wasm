@@ -1,5 +1,5 @@
+use gloo_storage::{LocalStorage, Storage};
 use leptos::*;
-use leptos_router::*;
 use serde::{Deserialize, Serialize};
 use crate::api::S3Api;
 
@@ -11,6 +11,55 @@ mod components;
 mod pages;
 
 use self::{components::*, pages::*};
+
+const BUCKET_NAME: &str = "BUCKET_NAME";
+const MOBILE: &str = "Mobile";
+
+enum DeviceType {
+    Desktop,
+    Mobile,
+}
+
+fn get_device_type() -> DeviceType {
+    match leptos::window().navigator().user_agent() {
+        Ok(s) => {
+            if s.as_str().contains(MOBILE) {DeviceType::Mobile} else {DeviceType::Desktop}
+        }
+        Err(_) => DeviceType::Desktop,
+    }
+}
+
+struct Config {
+    s3_bucket_name: Option<String>,
+}
+
+impl Config {
+    pub fn new() -> Self{
+        match LocalStorage::get(BUCKET_NAME.to_string()) {
+            Ok(s) => {
+                match s {
+                    Some(ss) => Self{s3_bucket_name: ss},
+                    None => match leptos::window().location().search() {
+                        Ok(mut s) => {
+                            s.remove(0);
+                            Self{s3_bucket_name: Some(s)}
+                        }
+                        Err(_) => Self{s3_bucket_name: None},
+                    }
+                }
+            }
+            Err(_) => {
+                match leptos::window().location().search() {
+                    Ok(mut s) => {
+                        s.remove(0);
+                        Self{s3_bucket_name: Some(s)}
+                    }
+                    Err(_) => Self{s3_bucket_name: None},
+                }
+            },
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Error {
@@ -170,19 +219,11 @@ pub fn App(cx: Scope) -> impl IntoView {
     // -- initial image fetch //
     log::info!("initializing");
     fetch_images.dispatch(());
+        match get_device_type() {
+            DeviceType::Desktop => view!{cx, <Home image_list = image_list.into() app_state_signal = app_state_signal.into() />}.into_view(cx),
+            DeviceType::Mobile => view!{cx, <MobileHome image_list = image_list.into() app_state_signal = app_state_signal.into() />}.into_view(cx),
+        }
 
-    view! { cx,
-      <Router>
-        <main>
-          <Routes>
-            <Route
-              path=Page::Home.path()
-              view=move |cx| view! { cx,
-                <Home image_list = image_list.into() app_state_signal = app_state_signal.into() />
-              }
-            />
-          </Routes>
-        </main>
-      </Router>
-    }
+            
+    
 }
